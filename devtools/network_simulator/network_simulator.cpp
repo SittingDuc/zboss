@@ -64,6 +64,7 @@ PURPOSE: Network simulator. Emulates Zigbee network topology.
 
 #include "mac_frame.h"
 
+extern "C" int sigignore (int);
 
 /*
  TODO  Debug for Big Endian + Security !!
