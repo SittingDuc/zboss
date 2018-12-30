@@ -52,6 +52,11 @@ include $(BUILD_HOME)/Options
 INCPATH += -I/usr/include/libxml2
 LIBXML = -lxml2 
 
+.cpp.o:
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o $@ $<
+
+LINK_BINARY_CXX = $(CXX) -g -o $@ $^ -lpthread
+
 SRCS0 = network_simulator.cpp xgml_load.cpp zigbee_stuff.cpp mac_frame.cpp
 OBJS0 = ${SRCS0:.cpp=.o}
 
