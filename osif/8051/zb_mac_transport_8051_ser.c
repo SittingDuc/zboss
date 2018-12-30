@@ -49,12 +49,15 @@ put and non-blocked get from the int handler.
 
 
 #include "zb_common.h"
+//#include "zb_g_context.h"
+extern ZB_SDCC_XDATA zb_globals_t g_zb;
 
 #ifdef ZB_TRANSPORT_8051_DATA_UART
 
 #include "zb_bufpool.h"
 #include "zb_ringbuffer.h"
 #include "zb_scheduler.h"
+#include "zb_mac_state.h"
 #include "zb_mac_transport.h"
 
 /*! \addtogroup ZB_MAC_TRANSPORT */
@@ -80,11 +83,11 @@ void zb_mac_transport_init()
 void zb_mac_transport_start_recv(zb_buf_t *buf, zb_short_t bytes_to_recv)
 {
   ZB_ASSERT(buf); /* check input buffer pointer */
-  ZB_ASSERT(!ZG->ioctx.recv_data_buf);
+  ZB_ASSERT(!g_izb.ioctx.recv_data_buf);
 
-  ZG->ioctx.bytes_to_recv = bytes_to_recv;
-  ZG->ioctx.recv_data_buf = buf;
-  TRACE_MSG(TRACE_MAC3, "set recv_data_buf %p", (FMT__P, ZG->ioctx.recv_data_buf));
+  g_izb.ioctx.bytes_to_recv = bytes_to_recv;
+  g_izb.ioctx.recv_data_buf = buf;
+  TRACE_MSG(TRACE_MAC3, "set recv_data_buf %p", (FMT__P, g_izb.ioctx.recv_data_buf));
 
   (void)zb_8051_serial_try_recv();
 }
@@ -94,12 +97,13 @@ zb_ret_t zb_8051_serial_try_recv()
 {
   zb_ret_t ret = RET_OK;
 
-  if (!ZG->ioctx.recv_data_buf)
+  if (!g_izb.ioctx.recv_data_buf)
   {
     ZB_OSIF_GLOBAL_LOCK();
     if (!ZB_RING_BUFFER_IS_EMPTY(&SER_CTX().rx_buf))
     {
-      MAC_SET_STATE_FOR_LAYER(ZB_MAC_IO_LAYER_RX, ZB_MAC_STATE_IO_RECV_PENDING);
+      /* SDCC FIXME: debugging statement, not happy, commented out */
+      //      MAC_SET_STATE_FOR_LAYER(ZB_MAC_IO_LAYER_RX, ZB_MAC_STATE_IO_RECV_PENDING);
       TRACE_MSG(TRACE_MAC3, "set mac rx state %i", (FMT__D, ZB_MAC_STATE_IO_RECV_PENDING));
     }
     ZB_OSIF_GLOBAL_UNLOCK();
@@ -107,44 +111,44 @@ zb_ret_t zb_8051_serial_try_recv()
     return RET_OK;
   }
 
-  if (!ZG->ioctx.bytes_to_recv)
+  if (!g_izb.ioctx.bytes_to_recv)
   {
-    if (zb_8051_serial_get_bytes(&ZG->ioctx.bytes_to_recv, 1) != 0)
+    if (zb_8051_serial_get_bytes(&g_izb.ioctx.bytes_to_recv, 1) != 0)
     {
       zb_uint8_t *p;
-      ZB_BUF_INITIAL_ALLOC(ZG->ioctx.recv_data_buf, ZG->ioctx.bytes_to_recv, p);
-      *p = ZG->ioctx.bytes_to_recv;
-      TRACE_MSG( TRACE_MAC3, "will recv %d", (FMT__D, (int)ZG->ioctx.bytes_to_recv));
-      ZB_BUF_LEN(ZG->ioctx.recv_data_buf) = 1;
+      ZB_BUF_INITIAL_ALLOC(g_izb.ioctx.recv_data_buf, g_izb.ioctx.bytes_to_recv, p);
+      *p = g_izb.ioctx.bytes_to_recv;
+      TRACE_MSG( TRACE_MAC3, "will recv %d", (FMT__D, (int)g_izb.ioctx.bytes_to_recv));
+      ZB_BUF_LEN(g_izb.ioctx.recv_data_buf) = 1;
     }
     ret = RET_BLOCKED;
   }
   else
   {
-    zb_ushort_t n = ZG->ioctx.bytes_to_recv - ZB_BUF_LEN(ZG->ioctx.recv_data_buf);
+    zb_ushort_t n = g_izb.ioctx.bytes_to_recv - ZB_BUF_LEN(g_izb.ioctx.recv_data_buf);
 
     if (n)
     {
       /* this is nonblocked read: get all we can */
       n = zb_8051_serial_get_bytes(
-        ZB_BUF_BEGIN(ZG->ioctx.recv_data_buf) + ZB_BUF_LEN(ZG->ioctx.recv_data_buf),
+        ZB_BUF_BEGIN(g_izb.ioctx.recv_data_buf) + ZB_BUF_LEN(g_izb.ioctx.recv_data_buf),
         n);
 
-      ZB_BUF_LEN(ZG->ioctx.recv_data_buf) += n;
+      ZB_BUF_LEN(g_izb.ioctx.recv_data_buf) += n;
       TRACE_MSG( TRACE_MAC3, "n %d", (FMT__D, (int)n));
 
-      if (ZG->ioctx.bytes_to_recv == ZB_BUF_LEN(ZG->ioctx.recv_data_buf))
+      if (g_izb.ioctx.bytes_to_recv == ZB_BUF_LEN(g_izb.ioctx.recv_data_buf))
       {
         TRACE_MSG( TRACE_MAC3, "received buf %p %d bytes: %x %x %x %x", (FMT__P_D_D_D_D_D,
-                   ZG->ioctx.recv_data_buf, (int)ZB_BUF_LEN(ZG->ioctx.recv_data_buf),
-                   (int)ZB_BUF_BEGIN(ZG->ioctx.recv_data_buf)[0],
-                   (int)ZB_BUF_BEGIN(ZG->ioctx.recv_data_buf)[1],
-                   (int)ZB_BUF_BEGIN(ZG->ioctx.recv_data_buf)[2],
-                   (int)ZB_BUF_BEGIN(ZG->ioctx.recv_data_buf)[3]));
+                   g_izb.ioctx.recv_data_buf, (int)ZB_BUF_LEN(g_izb.ioctx.recv_data_buf),
+                   (int)ZB_BUF_BEGIN(g_izb.ioctx.recv_data_buf)[0],
+                   (int)ZB_BUF_BEGIN(g_izb.ioctx.recv_data_buf)[1],
+                   (int)ZB_BUF_BEGIN(g_izb.ioctx.recv_data_buf)[2],
+                   (int)ZB_BUF_BEGIN(g_izb.ioctx.recv_data_buf)[3]));
         /* we are done */
         ZB_SET_RECV_STATUS(ZB_RECV_FINISHED);
-        ZG->ioctx.recv_data_buf = NULL;
-        TRACE_MSG(TRACE_MAC3, "set recv_data_buf %p", (FMT__P, ZG->ioctx.recv_data_buf));
+        g_izb.ioctx.recv_data_buf = NULL;
+        TRACE_MSG(TRACE_MAC3, "set recv_data_buf %p", (FMT__P, g_izb.ioctx.recv_data_buf));
         ZB_MAC_STOP_IO();
       }
       else
