@@ -200,12 +200,12 @@ void zb_mac_recv_data(zb_uint8_t param)
   TRACE_MSG(TRACE_MAC1, "<<zb_mac_recv_data", (FMT__D));
 }
 
-static zb_bool_t can_accept_frame(zb_mac_mhr_t mhr)
+static zb_bool_t can_accept_frame(zb_mac_mhr_t *mhr)
 {
   zb_bool_t ret = ZB_FALSE;
 
 #ifdef ZB_LIMIT_VISIBILITY
-  if (!mac_is_frame_visible(&mhr))
+  if (!mac_is_frame_visible(mhr))
   {
     TRACE_MSG(TRACE_COMMON1, "filtered frame dropped", (FMT__0));
   }
@@ -213,15 +213,15 @@ static zb_bool_t can_accept_frame(zb_mac_mhr_t mhr)
 #endif
   {
 #ifdef ZB_BLOCK_BROADCASTS_SLEEPY_ED
-    if ((!ZB_PIB_RX_ON_WHEN_IDLE())&&(mhr.dst_addr.addr_short == 0xffff))
+    if ((!ZB_PIB_RX_ON_WHEN_IDLE())&&(mhr->dst_addr.addr_short == 0xffff))
     {
       TRACE_MSG(TRACE_COMMON1, "drop broadcast", (FMT__0));
     }
     else
     {
 #endif
-      if (ZB_FCF_GET_SECURITY_BIT(mhr.frame_control)
-          && ZB_FCF_GET_FRAME_VERSION(mhr.frame_control) < MAC_FRAME_IEEE_802_15_4)
+      if (ZB_FCF_GET_SECURITY_BIT(mhr->frame_control)
+          && ZB_FCF_GET_FRAME_VERSION(mhr->frame_control) < MAC_FRAME_IEEE_802_15_4)
       {
         TRACE_MSG(TRACE_MAC1, "unsupported 2003 security frame dropped", (FMT__0));
       }
@@ -387,7 +387,7 @@ void zb_mac_parse_recv_data(zb_uint8_t param) ZB_CALLBACK
 
   TRACE_MSG(TRACE_MAC3, "set mac rx , frm %hi len %hi", (FMT__H_H,
                                                          ZB_FCF_GET_FRAME_TYPE(fcf), ZB_BUF_LEN(buf)));
-  if (can_accept_frame(mhr))
+  if (can_accept_frame(&mhr))
   {
     if (ZB_MAC_GET_INDIRECT_DATA_REQUEST())
     {
