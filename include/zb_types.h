@@ -70,6 +70,12 @@ PURPOSE: general-purpose typedefs
 #define ZB_XDATA xdata
 #define ZB_CODE  code
 #define ZB_IAR_CODE code
+#elif defined SDCC
+//#define ZB_XDATA __xdata
+/* using model large probably grants us __xdata by default */
+#define ZB_XDATA
+#define ZB_CODE
+#define ZB_IAR_CODE __code
 #else
 #define ZB_XDATA
 #define ZB_CODE
