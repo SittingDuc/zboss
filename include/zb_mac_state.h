@@ -107,7 +107,7 @@ typedef enum
     )
 
 /* void mac_dump_states(); */ /* removed along with mac states */
-#if 1
+#if 0
 #define MAC_DUMP_STATES() mac_dump_states()
 #else
 #define MAC_DUMP_STATES()
@@ -117,7 +117,7 @@ typedef enum
 #define MAC_SET_STATE_FOR_LAYER( layer, newstate )              \
 {                                                               \
   TRACE_MSG(TRACE_MAC2, "mac set state %hd %hd -> %hd", (FMT__H_H_H, layer, ZG->mac.mac_ctx.state[ (layer) ], newstate)); \
-  ZG->mac.mac_ctx.state[ (layer) ] = (newstate);                \
+  g_zb.mac.mac_ctx.state[ (layer) ] = (newstate);                \
   MAC_DUMP_STATES();                                            \
 }
 
