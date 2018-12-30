@@ -128,6 +128,10 @@ void zb_nwk_nib_init()
   TRACE_MSG(TRACE_NWK1, "<<nib_init", (FMT__0));
 }
 
+const zb_ushort_t terrible_size_full = (zb_size_t)(&((zb_nwk_hdr_t *)0)->mcast_control);
+const zb_ushort_t terrible_size_half = (zb_size_t)(&((zb_nwk_hdr_t *)0)->mcast_control);
+const zb_ushort_t terrible_size_least = (zb_size_t)(&((zb_nwk_hdr_t *)0)->mcast_control);
+
 /*
   Alloc and fill nwk hdr, return pointer to the allocated hdr
 */
@@ -137,8 +141,21 @@ zb_nwk_hdr_t *nwk_alloc_and_fill_hdr(zb_buf_t *buf,
                                      zb_bool_t is_multicast, zb_bool_t is_secured, zb_bool_t is_cmd_frame) ZB_SDCC_REENTRANT
 {
   zb_nwk_hdr_t *nwhdr;
-  zb_ushort_t hdr_size = ( src_ieee_addr && dst_ieee_addr ) ? ZB_NWK_FULL_HDR_SIZE(is_multicast)
-    : ( (src_ieee_addr || dst_ieee_addr) ? ZB_NWK_HALF_HDR_SIZE(is_multicast) : ZB_NWK_SHORT_HDR_SIZE(is_multicast) );
+  zb_ushort_t hdr_size;
+  zb_uint8_t si;
+  zb_uint8_t di;
+
+  if (src_ieee_addr && dst_ieee_addr) {
+    hdr_size = terrible_size_full;
+  } else if (src_ieee_addr || dst_ieee_addr) {
+    hdr_size = terrible_size_half;
+  } else {
+    hdr_size = terrible_size_least;
+  }
+  if(is_multicast) {
+    hdr_size++;
+  }
+
 
 #ifdef ZB_SECURITY
   if ( is_secured )
@@ -169,7 +186,10 @@ zb_nwk_hdr_t *nwk_alloc_and_fill_hdr(zb_buf_t *buf,
   {
     ZB_NWK_FRAMECTL_SET_FRAME_TYPE_N_PROTO_VER(nwhdr->frame_control, ZB_NWK_FRAME_TYPE_DATA, ZB_PROTOCOL_VERSION);
   }
-  ZB_NWK_FRAMECTL_SET_SRC_DEST_IEEE(nwhdr->frame_control, (src_ieee_addr) ? 1 : 0, (dst_ieee_addr) ? 1 : 0);
+  if( src_ieee_addr ) { si=1; } else { si=0; }
+  if( dst_ieee_addr ) { di=1; } else { di=0; }
+  ZB_NWK_FRAMECTL_SET_SRC_DEST_IEEE(nwhdr->frame_control, si, di);
+
 #ifdef ZB_SECURITY
   if ( is_secured )
   {
@@ -1193,7 +1213,8 @@ if (!ZG->nwk.handle.joined_pro)
 #define LQI_TEST
 #ifdef ZB_NS_BUILD
 #ifdef LQI_TEST
-      lqi = ( nwk_hdr->src_addr*10 > 255 ) ? 255 : nwk_hdr->src_addr*10;
+      /* FIXME: why is this sad in SDCC? */
+      //      lqi = ( nwk_hdr->src_addr*10 > 255 ) ? 255 : nwk_hdr->src_addr*10;
 #endif
 #endif
       nbt->lqi = lqi;
@@ -1708,18 +1729,31 @@ zb_void_t zb_nwk_set_device_type(zb_nwk_device_type_t device_type)
 
 zb_ushort_t zb_nwk_hdr_size(zb_uint8_t *fctl)
 {
+  zb_ushort_t hdr_size2;
+
+  hdr_size2 = terrible_size_least;
+  if( ZB_NWK_FRAMECTL_GET_MULTICAST_FLAG(fctl) ) {
+    hdr_size2++;
+  }
+
 #ifdef ZB_SECURITY
+  zb_ushort_t frame_hdr_size;
+  if (ZB_NWK_FRAMECTL_GET_SECURITY(fctl)) {
+    frame_hdr_size = sizeof(zb_nwk_aux_frame_hdr_t);
+  } else {
+    frame_hdr_size = 0;
+  }
   return (
-    ZB_NWK_SHORT_HDR_SIZE(ZB_NWK_FRAMECTL_GET_MULTICAST_FLAG(fctl)) +
-    (ZB_NWK_FRAMECTL_GET_SECURITY(fctl) ? sizeof(zb_nwk_aux_frame_hdr_t) : 0) +
-    (ZB_NWK_FRAMECTL_GET_DESTINATION_IEEE(fctl) + ZB_NWK_FRAMECTL_GET_SOURCE_IEEE(fctl)) * sizeof(zb_ieee_addr_t) +
-  0                             /* TODO: add source route subframe here */ \
-    );
+	  hdr_size2 + //    ZB_NWK_SHORT_HDR_SIZE(ZB_NWK_FRAMECTL_GET_MULTICAST_FLAG(fctl)) +
+	  (frame_hdr_size) +
+	  (ZB_NWK_FRAMECTL_GET_DESTINATION_IEEE(fctl) + ZB_NWK_FRAMECTL_GET_SOURCE_IEEE(fctl)) * sizeof(zb_ieee_addr_t) +
+	  0                             /* TODO: add source route subframe here */ \
+	  );
 #else
   return (
-    ZB_NWK_SHORT_HDR_SIZE(ZB_NWK_FRAMECTL_GET_MULTICAST_FLAG(fctl)) +
-    (ZB_NWK_FRAMECTL_GET_DESTINATION_IEEE(fctl) + ZB_NWK_FRAMECTL_GET_SOURCE_IEEE(fctl)) * sizeof(zb_ieee_addr_t) +
-  0                             /* TODO: add source route subframe here */
+	  hdr_size2 + //    ZB_NWK_SHORT_HDR_SIZE(ZB_NWK_FRAMECTL_GET_MULTICAST_FLAG(fctl)) +
+	  (ZB_NWK_FRAMECTL_GET_DESTINATION_IEEE(fctl) + ZB_NWK_FRAMECTL_GET_SOURCE_IEEE(fctl)) * sizeof(zb_ieee_addr_t) +
+	  0                             /* TODO: add source route subframe here */
     );
 #endif
 }
